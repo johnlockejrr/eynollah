@@ -1,17 +1,18 @@
+import cv2
+import imutils
 import math
 import matplotlib.pyplot as plt
 import numpy as np
-from shapely import geometry
-import cv2
-import imutils
 from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter1d
-
+from shapely import geometry
 from .is_nan import isNaN
-from .contour import (contours_in_same_horizon,
-                      find_new_features_of_contours,
-                      return_contours_of_image,
-                      return_parent_contours)
+from .contour import (
+    contours_in_same_horizon,
+    find_new_features_of_contours,
+    return_contours_of_image,
+    return_parent_contours
+)
 
 
 def return_x_start_end_mothers_childs_and_type_of_reading_order(x_min_hor_some, x_max_hor_some, cy_hor_some, peak_points, cy_hor_diff):
@@ -1646,8 +1647,7 @@ def find_number_of_columns_in_document(region_pre_p, num_col_classifier, tables,
         # regions_without_separators_tile=cv2.erode(regions_without_separators_tile,kernel,iterations = 3)
 
         try:
-            num_col, peaks_neg_fin = find_num_col(regions_without_separators_tile, num_col_classifier, tables,
-                                                  multiplier=7.0)
+            num_col, peaks_neg_fin = find_num_col(regions_without_separators_tile, num_col_classifier, tables, multiplier=7.0)
         except:
             num_col = 0
             peaks_neg_fin = []

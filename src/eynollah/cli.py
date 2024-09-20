@@ -1,7 +1,7 @@
-import sys
 import click
+import sys
 from ocrd_utils import initLogging, setOverrideLogLevel
-from src.eynollah.eynollah import Eynollah
+from .eynollah import Eynollah
 
 
 @click.command()

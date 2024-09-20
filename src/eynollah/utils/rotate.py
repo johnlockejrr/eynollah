@@ -1,7 +1,6 @@
-import math
-
-import imutils
 import cv2
+import imutils
+import math
 
 
 def rotatedRectWithMaxArea(w, h, angle):

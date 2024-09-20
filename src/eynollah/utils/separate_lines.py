@@ -1,21 +1,18 @@
-import numpy as np
 import cv2
-from scipy.signal import find_peaks
+import numpy as np
 from scipy.ndimage import gaussian_filter1d
-import os
-
-from .rotate import rotate_image
+from scipy.signal import find_peaks
+from . import (
+    find_num_col_deskew,
+    isNaN,
+)
 from .contour import (
     return_parent_contours,
     filter_contours_area_of_image_tables,
     return_contours_of_image,
     filter_contours_area_of_image
 )
-from .is_nan import isNaN
-from . import (
-    find_num_col_deskew,
-    isNaN,
-)
+from .rotate import rotate_image
 
 
 def dedup_separate_lines(img_patch, contour_text_interest, thetha, axis):
@@ -476,7 +473,6 @@ def separate_lines(img_patch, contour_text_interest, thetha, x_help, y_help):
                                         [int(x_max), int(y_min)],
                                         [int(x_max), int(y_max)],
                                         [int(x_min), int(y_max)]]))
-
 
     elif len(peaks) == 2:
         dis_to_next = np.abs(peaks[1] - peaks[0])

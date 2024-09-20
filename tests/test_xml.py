@@ -1,6 +1,6 @@
 from pytest import main
-from src.eynollah.utils.xml import create_page_xml
 from ocrd_models.ocrd_page import to_xml
+from src.eynollah.utils.xml import create_page_xml
 
 PAGE_2019 = 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15'
 

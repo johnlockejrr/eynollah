@@ -1,7 +1,7 @@
 import cv2
 from pathlib import Path
-from src.eynollah.utils.pil_cv2 import check_dpi
 from tests.base import main
+from src.eynollah.utils.pil_cv2 import check_dpi
 
 
 def test_dpi():

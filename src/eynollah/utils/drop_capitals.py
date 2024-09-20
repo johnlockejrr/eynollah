@@ -1,5 +1,6 @@
-import numpy as np
 import cv2
+import numpy as np
+
 from .contour import (
     find_new_features_of_contours,
     return_contours_of_image,

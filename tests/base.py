@@ -1,12 +1,8 @@
 # pylint: disable=unused-import
-
-from os.path import dirname, realpath
-from os import chdir
 import sys
-import logging
-import io
-import collections
-from unittest import TestCase as VanillaTestCase, skip, main as unittests_main
+from os import chdir
+from os.path import dirname, realpath
+from unittest import TestCase as VanillaTestCase, main as unittests_main
 import pytest
 from ocrd_utils import disableLogging, initLogging
 

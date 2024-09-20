@@ -1,14 +1,7 @@
 from json import loads
-from pkg_resources import resource_string
-from tempfile import NamedTemporaryFile
-from pathlib import Path
 from os.path import join
-
-from PIL import Image
-
 from ocrd import Processor
-from ocrd_modelfactory import page_from_file, exif_from_filename
-from ocrd_models import OcrdFile, OcrdExif
+from ocrd_modelfactory import page_from_file
 from ocrd_models.ocrd_page import to_xml
 from ocrd_utils import (
     getLogger,
@@ -16,9 +9,8 @@ from ocrd_utils import (
     assert_file_grp_cardinality,
     make_file_id
 )
-
+from pkg_resources import resource_string
 from .eynollah import Eynollah
-from .utils.pil_cv2 import pil2cv
 
 OCRD_TOOL = loads(resource_string(__name__, 'ocrd-tool.json').decode('utf8'))
 

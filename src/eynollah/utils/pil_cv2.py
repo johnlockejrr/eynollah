@@ -1,9 +1,13 @@
-from PIL import Image
+from cv2 import (
+    COLOR_GRAY2BGR,
+    COLOR_RGB2BGR,
+    COLOR_BGR2RGB,
+    cvtColor,
+    imread
+)
 import numpy as np
+from PIL import Image
 from ocrd_models import OcrdExif
-from cv2 import COLOR_GRAY2BGR, COLOR_RGB2BGR, COLOR_BGR2RGB, cvtColor, imread
-
-# from sbb_binarization
 
 
 def cv2pil(img):

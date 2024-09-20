@@ -1,12 +1,8 @@
 # pylint: disable=too-many-locals,wrong-import-position,too-many-lines,too-many-statements,chained-comparison,fixme,broad-except,c-extension-no-member
 # pylint: disable=import-error
-from pathlib import Path
+import numpy as np
 import os.path
-
-from .utils.xml import create_page_xml, xml_reading_order
-from .utils.counter import EynollahIdCounter
-
-from ocrd_utils import getLogger
+from pathlib import Path
 from ocrd_models.ocrd_page import (
     BorderType,
     CoordsType,
@@ -18,7 +14,9 @@ from ocrd_models.ocrd_page import (
     SeparatorRegionType,
     to_xml
 )
-import numpy as np
+from ocrd_utils import getLogger
+from .utils.xml import create_page_xml, xml_reading_order
+from .utils.counter import EynollahIdCounter
 
 
 class EynollahXmlWriter():

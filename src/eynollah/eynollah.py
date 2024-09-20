@@ -1,40 +1,40 @@
 # pylint: disable=no-member,invalid-name,line-too-long,missing-function-docstring,missing-class-docstring,too-many-branches
 # pylint: disable=too-many-locals,wrong-import-position,too-many-lines,too-many-statements,chained-comparison,fixme,broad-except,c-extension-no-member
-# pylint: disable=too-many-public-methods,too-many-arguments,too-many-instance-attributes,too-many-public-methods,
+# pylint: disable=too-many-public-methods,too-many-arguments,too-many-instance-attributes,too-many-public-methods
 # pylint: disable=consider-using-enumerate
 """
 document layout analysis (segmentation) with output in PAGE-XML
 """
-
 import math
 import os
 import sys
 import time
 import warnings
-from pathlib import Path
 from multiprocessing import Process, Queue, cpu_count
-import gc
-from ocrd_utils import getLogger
+from pathlib import Path
 import cv2
 import numpy as np
-
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-stderr = sys.stderr
-sys.stderr = open(os.devnull, "w")
 import tensorflow as tf
-from tensorflow.python.keras import backend as K
-from tensorflow.keras.models import load_model
-
-sys.stderr = stderr
-tf.get_logger().setLevel("ERROR")
-warnings.filterwarnings("ignore")
-from scipy.signal import find_peaks
-import matplotlib.pyplot as plt
+from ocrd_utils import getLogger
 from scipy.ndimage import gaussian_filter1d
-# use tf1 compatibility for keras backend
-from tensorflow.compat.v1.keras.backend import set_session
+from scipy.signal import find_peaks
+from tensorflow.python.keras import backend as K
 from tensorflow.keras import layers
-
+from tensorflow.keras.models import load_model
+from .plot import EynollahPlotter
+from .utils import (
+    boosting_headers_by_longshot_region_segmentation,
+    crop_image_inside_box,
+    find_num_col,
+    otsu_copy_binary,
+    put_drop_out_from_only_drop_model,
+    putt_bb_of_drop_capitals_of_model_in_patches_in_layout,
+    check_any_text_region_in_model_one_is_main_or_header,
+    check_any_text_region_in_model_one_is_main_or_header_light,
+    small_textlines_to_parent_adherence2,
+    order_of_regions,
+    find_number_of_columns_in_document,
+    return_boxes_of_images_by_order_of_reading_new)
 from .utils.contour import (
     filter_contours_area_of_image,
     filter_contours_area_of_image_tables,
@@ -50,6 +50,12 @@ from .utils.contour import (
     return_contours_of_interested_textline,
     return_parent_contours,
 )
+from .utils.drop_capitals import (
+    adhere_drop_capital_region_into_corresponding_textline,
+    filter_small_drop_capitals_from_no_patch_layout)
+from .utils.marginals import get_marginals
+from .utils.pil_cv2 import check_dpi, pil2cv
+from .utils.resize import resize_image
 from .utils.rotate import (
     rotate_image,
     rotation_not_90_func,
@@ -58,28 +64,15 @@ from .utils.separate_lines import (
     textline_contours_postprocessing,
     separate_lines_new2,
     return_deskew_slop)
-from .utils.drop_capitals import (
-    adhere_drop_capital_region_into_corresponding_textline,
-    filter_small_drop_capitals_from_no_patch_layout)
-from .utils.marginals import get_marginals
-from .utils.resize import resize_image
-from .utils import (
-    boosting_headers_by_longshot_region_segmentation,
-    crop_image_inside_box,
-    find_num_col,
-    otsu_copy_binary,
-    put_drop_out_from_only_drop_model,
-    putt_bb_of_drop_capitals_of_model_in_patches_in_layout,
-    check_any_text_region_in_model_one_is_main_or_header,
-    check_any_text_region_in_model_one_is_main_or_header_light,
-    small_textlines_to_parent_adherence2,
-    order_of_regions,
-    find_number_of_columns_in_document,
-    return_boxes_of_images_by_order_of_reading_new)
-from .utils.pil_cv2 import check_dpi, pil2cv
 from .utils.xml import order_and_id_of_texts
-from .plot import EynollahPlotter
 from .writer import EynollahXmlWriter
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+tf.get_logger().setLevel("ERROR")
+warnings.filterwarnings("ignore")
+stderr = sys.stderr
+sys.stderr = open(os.devnull, "w")
+sys.stderr = stderr
 
 SLOPE_THRESHOLD = 0.13
 RATIO_OF_TWO_MODEL_THRESHOLD = 95.50  # 98.45:
@@ -244,7 +237,7 @@ class Eynollah:
             config = tf.compat.v1.ConfigProto()
             config.gpu_options.allow_growth = True
             session = tf.compat.v1.Session(config=config)
-            set_session(session)
+            K.set_session(session)
 
             self.model_page = self.our_load_model(self.model_page_dir)
             self.model_classifier = self.our_load_model(self.model_dir_of_col_classifier)
@@ -260,7 +253,7 @@ class Eynollah:
             config = tf.compat.v1.ConfigProto()
             config.gpu_options.allow_growth = True
             session = tf.compat.v1.Session(config=config)
-            set_session(session)
+            K.set_session(session)
 
             self.model_page = self.our_load_model(self.model_page_dir)
             self.model_classifier = self.our_load_model(self.model_dir_of_col_classifier)
@@ -276,7 +269,7 @@ class Eynollah:
             config = tf.compat.v1.ConfigProto()
             config.gpu_options.allow_growth = True
             session = tf.compat.v1.Session(config=config)
-            set_session(session)
+            K.set_session(session)
 
             self.model_page = self.our_load_model(self.model_page_dir)
             self.model_classifier = self.our_load_model(self.model_dir_of_col_classifier)
@@ -2566,6 +2559,7 @@ class Eynollah:
 
                 image_revised_last[int(boxes[i][2]):int(boxes[i][3]), int(boxes[i][0]):int(boxes[i][1]), :] = image_box[:, :, :]
         else:
+            image_revised_last = np.zeros((image_regions_eraly_p.shape[0], image_regions_eraly_p.shape[1], 3))
             for i in range(len(boxes)):
                 image_box = img_comm[int(boxes[i][2]):int(boxes[i][3]), int(boxes[i][0]):int(boxes[i][1]), :]
                 image_revised_last[int(boxes[i][2]):int(boxes[i][3]), int(boxes[i][0]):int(boxes[i][1]), :] = image_box[:, :, :]
@@ -3345,11 +3339,9 @@ class Eynollah:
                     else:
                         pass
                 if self.light_version:
-                    txt_con_org = get_textregion_contours_in_org_image_light(contours_only_text_parent, self.image,
-                                                                             slope_first)
+                    txt_con_org = get_textregion_contours_in_org_image_light(contours_only_text_parent, self.image, slope_first)
                 else:
-                    txt_con_org = get_textregion_contours_in_org_image(contours_only_text_parent, self.image,
-                                                                       slope_first)
+                    txt_con_org = get_textregion_contours_in_org_image(contours_only_text_parent, self.image, slope_first)
                 boxes_text, _ = get_text_region_boxes_by_given_contours(contours_only_text_parent)
                 boxes_marginals, _ = get_text_region_boxes_by_given_contours(polygons_of_marginals)
 

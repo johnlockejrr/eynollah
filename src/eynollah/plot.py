@@ -1,10 +1,9 @@
-import matplotlib.pyplot as plt
+import cv2
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
 import os.path
-import cv2
 from scipy.ndimage import gaussian_filter1d
-
 from .utils import crop_image_inside_box
 from .utils.rotate import rotate_image_different
 from .utils.resize import resize_image

@@ -1,6 +1,6 @@
-from .processor import EynollahProcessor
 from click import command
 from ocrd.decorators import ocrd_cli_options, ocrd_cli_wrap_processor
+from .processor import EynollahProcessor
 
 
 @command()
