@@ -2710,17 +2710,20 @@ class Eynollah():
 
         if not self.batch_processing_mode:
             # FIXME: why?
+            #In the case of processing images from a directory, I first gather all the image names into a list. Then, for each item in the list, I call the renaming function, retrieving both the name and the image. However, for the case of a single image, I needed to adapt the process. In this mode, the image name and the image itself are initialized at the beginning of the class. To keep the process consistent, I created a list with a single element, allowing the flow to continue. The value in the list, whether '1' or otherwise, isn't significant—what's important is that both the directory processing and single-image modes rely on a list of images, with the key difference being the initialization process I mentioned.
             self.ls_imgs = [1]
         
         for img_name in self.ls_imgs:
             t0 = time.time()
             if self.batch_processing_mode:
+                # See previous comment.
                 self.reset_file_name_dir(join(self.dirs.dir_in, img_name))
             
             img_res, is_image_enhanced, num_col_classifier, num_column_is_classified = self.run_enhancement(self.light_version)
             self.logger.info("Enhancing took %.1fs ", time.time() - t0)
             
             t1 = time.time()
+            #In the lightweight version, I aimed to extract the layout and text lines using artificial classes and ground-truth (GT) images at smaller scales, making the process faster. In this mode, both layout and textline detection are handled by a function called get_regions_light_v
             if self.light_version:
                 text_regions_p_1 ,erosion_hurts, polygons_lines_xml, textline_mask_tot_ea = self.get_regions_light_v(img_res, is_image_enhanced, num_col_classifier)
                 slope_deskew, slope_first = self.run_deskew(textline_mask_tot_ea)
@@ -2739,6 +2742,7 @@ class Eynollah():
                 self.logger.info("Graphics detection took %.1fs ", time.time() - t1)
                 #self.logger.info('cont_page %s', cont_page)
             
+            #Our column classification model is trained to handle documents with 1 to 6 columns, but it does not account for empty pages. However, using a heuristic based on the layout results, it is possible to determine if a page is empty. For an empty page, the number of columns is set to None, making it unnecessary to continue with further processing. In such cases, I simply write the print space coordinates into the PageXML and finish the process for single-image mode, while continuing the flow for directory-based processing.
             if not num_col:
                 self.logger.info("No columns detected, outputting an empty PAGE-XML")
                 pcgts = self.writer.build_pagexml_no_full_layout([], page_coord, [], [], [], [], [], [], [], [], [], [], cont_page, [], [])
@@ -2764,6 +2768,7 @@ class Eynollah():
             textline_mask_tot, text_regions_p, image_page_rotated = self.run_marginals(image_page, textline_mask_tot_ea, mask_images, mask_lines, num_col_classifier, slope_deskew, text_regions_p_1, table_prediction)
             self.logger.info("detection of marginals took %.1fs", time.time() - t1)
             t1 = time.time()
+            #As we have both a full layout mode and a mode without full layout detection, in the case of full layout mode, we need to perform complete layout detection and add the information to the initial layout results.
             if not self.full_layout:
                 polygons_of_images, img_revised_tab, text_regions_p_1_n, textline_mask_tot_d, regions_without_separators_d, boxes, boxes_d, polygons_of_marginals, contours_tables = self.run_boxes_no_full_layout(image_page, textline_mask_tot, text_regions_p, slope_deskew, num_col_classifier, table_prediction, erosion_hurts)
 
@@ -2775,6 +2780,7 @@ class Eynollah():
             
             
             min_con_area = 0.000005
+            #The heuristic reading order works well when the document is not skewed. However, a skewed document can degrade the results. To prevent this degradation, in the case of significant skew, we first deskew the layout and determine the reading order, then adjust that reading order to match the original skewed layout. Here, I check whether the skew angle exceeds a certain threshold before applying this process.
             if np.abs(slope_deskew) >= SLOPE_THRESHOLD:
                 contours_only_text, hir_on_text = return_contours_of_image(text_only)
                 contours_only_text_parent = return_parent_contours(contours_only_text, hir_on_text)
