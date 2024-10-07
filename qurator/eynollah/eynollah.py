@@ -2754,6 +2754,7 @@ class Eynollah():
                     return pcgts
 
             t1 = time.time()
+            #For the light mode, the textline and early layout are handled within a function. However, for the non-light version, the textline needs to be implemented separately.
             if not self.light_version:
                 textline_mask_tot_ea = self.run_textline(image_page)
                 self.logger.info("textline detection took %.1fs", time.time() - t1)
@@ -2769,18 +2770,18 @@ class Eynollah():
             self.logger.info("detection of marginals took %.1fs", time.time() - t1)
             t1 = time.time()
             #As we have both a full layout mode and a mode without full layout detection, in the case of full layout mode, we need to perform complete layout detection and add the information to the initial layout results.
-            if not self.full_layout:
-                polygons_of_images, img_revised_tab, text_regions_p_1_n, textline_mask_tot_d, regions_without_separators_d, boxes, boxes_d, polygons_of_marginals, contours_tables = self.run_boxes_no_full_layout(image_page, textline_mask_tot, text_regions_p, slope_deskew, num_col_classifier, table_prediction, erosion_hurts)
-
             if self.full_layout:
                 polygons_of_images, img_revised_tab, text_regions_p_1_n, textline_mask_tot_d, regions_without_separators_d, regions_fully, regions_without_separators, polygons_of_marginals, contours_tables = self.run_boxes_full_layout(image_page, textline_mask_tot, text_regions_p, slope_deskew, num_col_classifier, img_only_regions, table_prediction, erosion_hurts)
+            else:
+                polygons_of_images, img_revised_tab, text_regions_p_1_n, textline_mask_tot_d, regions_without_separators_d, boxes, boxes_d, polygons_of_marginals, contours_tables = self.run_boxes_no_full_layout(image_page, textline_mask_tot, text_regions_p, slope_deskew, num_col_classifier, table_prediction, erosion_hurts)
+                
             text_only = ((img_revised_tab[:, :] == 1)) * 1
             if np.abs(slope_deskew) >= SLOPE_THRESHOLD:
                 text_only_d = ((text_regions_p_1_n[:, :] == 1)) * 1
             
             
             min_con_area = 0.000005
-            #The heuristic reading order works well when the document is not skewed. However, a skewed document can degrade the results. To prevent this degradation, in the case of significant skew, we first deskew the layout and determine the reading order, then adjust that reading order to match the original skewed layout. Here, I check whether the skew angle exceeds a certain threshold before applying this process.
+            #The heuristic reading order works well when the document is not skewed. However, a skewed document can degrade the results. To prevent this degradation, in the case of significant skew, we first deskew the layout and determine the reading order, then adjust that reading order to match the original skewed layout. Here, I check whether the skew angle exceeds a certain threshold before applying this process.  If a document is skewed beyond the threshold, we need to work with the deskewed results. However, the order of the contours in the deskewed document does not align with the original. Therefore, I need to reorder the deskewed contours to match the original contour order.
             if np.abs(slope_deskew) >= SLOPE_THRESHOLD:
                 contours_only_text, hir_on_text = return_contours_of_image(text_only)
                 contours_only_text_parent = return_parent_contours(contours_only_text, hir_on_text)
@@ -2881,6 +2882,7 @@ class Eynollah():
             boxes_text, _ = get_text_region_boxes_by_given_contours(contours_only_text_parent)
             boxes_marginals, _ = get_text_region_boxes_by_given_contours(polygons_of_marginals)
             
+            # For textline extraction, we have three methods. The first approach involves obtaining bounding boxes for textline segmentation. The second method, called the curved_line option, uses heuristics to separate segmentation results and retrieve textline contours, but it only works in the non-light version. In the light version, activating textline_light mode allows us to obtain textline contours with minimal post-processing.
             if not self.curved_line:
                 if self.light_version:
                     if self.textline_light:
@@ -2901,6 +2903,7 @@ class Eynollah():
                 all_found_textline_polygons_marginals, boxes_marginals, _, polygons_of_marginals, all_box_coord_marginals, _, slopes_marginals = self.get_slopes_and_deskew_new_curved(polygons_of_marginals, polygons_of_marginals, cv2.erode(textline_mask_tot_ea, kernel=KERNEL, iterations=1), image_page_rotated, boxes_marginals, text_only, num_col_classifier, scale_param, slope_deskew)
                 all_found_textline_polygons_marginals = small_textlines_to_parent_adherence2(all_found_textline_polygons_marginals, textline_mask_tot_ea, num_col_classifier)
             
+            #n full_layout mode, we need to determine for each text region whether it is a header or a paragraph, which here we have implemented it. In the light version, we scaled down the contours to speed up the process. This approach could be extended to the non-light version as well, but it should be tested first."
             if self.full_layout:
                 if np.abs(slope_deskew) >= SLOPE_THRESHOLD:
                     contours_only_text_parent_d_ordered = list(np.array(contours_only_text_parent_d_ordered, dtype=object)[index_by_text_par_con])
@@ -2925,7 +2928,7 @@ class Eynollah():
                 all_found_textline_polygons = adhere_drop_capital_region_into_corresponding_textline(text_regions_p, polygons_of_drop_capitals, contours_only_text_parent, contours_only_text_parent_h, all_box_coord, all_box_coord_h, all_found_textline_polygons, all_found_textline_polygons_h, kernel=KERNEL, curved_line=self.curved_line)
                 pixel_lines = 6
                 
-
+                #To determine the reading order using heuristics, we need the coordinates of separators and headers. However, we can choose to ignore the role of headers in the reading order detection process if needed.
                 if not self.headers_off:
                     if np.abs(slope_deskew) < SLOPE_THRESHOLD:
                         num_col, _, matrix_of_lines_ch, splitter_y_new, _ = find_number_of_columns_in_document(np.repeat(text_regions_p[:, :, np.newaxis], 3, axis=2), num_col_classifier, self.tables,  pixel_lines, contours_only_text_parent_h)
@@ -2936,7 +2939,7 @@ class Eynollah():
                         num_col, _, matrix_of_lines_ch, splitter_y_new, _ = find_number_of_columns_in_document(np.repeat(text_regions_p[:, :, np.newaxis], 3, axis=2), num_col_classifier, self.tables,  pixel_lines)
                     else:
                         _, _, matrix_of_lines_ch_d, splitter_y_new_d, _ = find_number_of_columns_in_document(np.repeat(text_regions_p_1_n[:, :, np.newaxis], 3, axis=2), num_col_classifier, self.tables, pixel_lines)
-
+                
                 if num_col_classifier >= 3:
                     if np.abs(slope_deskew) < SLOPE_THRESHOLD:
                         regions_without_separators = regions_without_separators.astype(np.uint8)
